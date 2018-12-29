@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+
+import yaml
+import operator
+import re
+from functools import reduce
+from subprocess import call
+
+'''
+Paths & data
+'''
+
+varsYaml = 'variables.yaml'
+varsDict = yaml.safe_load(open(varsYaml, 'r').read())
+
+outpath_tmp_md = '/tmp/mc-template-md-out.md'
+outpath_tmp_html = '/tmp/mc-template-html-out.html'
+outpath_final = 'out/mc-template.html'
+
+sassFile = 'sass/style.scss'
+cssFile = 'style.css'
+
+# Add items to this list to add custom headers, etc.
+filesToConcat = [
+    './content.md',
+    ]
+
+
+# Variable replacement
+def getFromDict(dataDict, mapList):
+    return reduce(operator.getitem, mapList, dataDict)
+
+def parseVars(string,dict):
+    variableMatches = re.findall(r'%.*?%',string)
+    variableMatches = list(set(variableMatches))
+    for match in variableMatches:
+        matchKeyList = match.replace('%','').split('-')
+        string = string.replace(match,getFromDict(dict,matchKeyList))
+
+    return string
+
+# Concatenate
+MDoutput = ''
+for file in filesToConcat:
+    MDoutput += open(file,'r').read()
+
+# Replace variables
+MDoutput = parseVars(MDoutput,varsDict)
+
+# Write concatenated MD
+open(outpath_tmp_md, 'w').write(MDoutput)
+
+# Render via pandoc
+md_render_command = ' '.join([
+    "pandoc",
+    "--from", "markdown-implicit_figures+fenced_divs+smart",
+    "--ascii",
+    outpath_tmp_md,
+    "-o", outpath_tmp_html,
+])
+call(md_render_command, shell=True)
+
+# Sass render
+sass_build_command = ' '.join([
+    "pysassc",
+    sassFile,
+    cssFile,
+])
+call(sass_build_command, shell=True)
+
+# Concat the CSS
+css = open(cssFile, 'r').read()
+intermediate_html = open(outpath_tmp_html, 'r').read()
+html_final = "<style type='text/css'>" + css + "</style>" + intermediate_html
+open(outpath_final, 'w').write(html_final)
+
+# Send to pasteboard
+call('cat ' + outpath_final + ' | pbcopy', shell=True)
+print('Copied to clipboard.')
