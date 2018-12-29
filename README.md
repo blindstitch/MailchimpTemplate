@@ -7,5 +7,5 @@ Uses MacOS `pbcopy` utility --- replace with API connection or FTP workflow of y
 
 ## Requires
 
-- `pandoc` with `fenced_divs`
+- `pandoc 2.2+` with `fenced_divs`, `implicit_figures`
 - `pbcopy`
